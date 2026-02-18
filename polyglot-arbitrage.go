@@ -72,11 +72,16 @@ func main() {
 		case <-ticker.C:
 			btcPrice, _ := coinbase.GetPrice("BTC-USD")
 			ethPrice, _ := coinbase.GetPrice("ETH-USD")
+			ethBTC, _ := coinbase.GetPrice("ETH-BTC")			
+
 
 			market.AddRate("USD", "BTC", 1/btcPrice)
 			market.AddRate("BTC", "USD", btcPrice)
-			market.AddRate("ETH", "USD", 1/ethPrice)
-			market.AddRate("USD", "ETH", ethPrice)
+			market.AddRate("ETH", "USD", ethPrice)
+			market.AddRate("USD", "ETH", 1/ethPrice)
+			market.AddRate("ETH", "BTC", ethBTC)
+			market.AddRate("BTC","ETH", 1/ethBTC)
+
 
 			CalculateDynamicPath(market, 100.0, "USD", 100.0, []string{"USD"}, 3)
 
@@ -113,8 +118,8 @@ func CalculateDynamicPath(g *Graph, startingamount float64, currentNode string, 
 	}
 
 	if len(path) > 1 && path[0] == currentNode {
-		if currentAmount > startingamount {
-			fmt.Printf("Potential Arbitrage found!\n Profit made %.2f\n", currentAmount-startingamount)
+		if currentAmount > startingamount + 0.02 {
+			fmt.Printf("Potential Arbitrage found!\n Profit made %.8f\n", currentAmount-startingamount)
 			fmt.Printf("Path found %v\n", path)
 		}
 		return
