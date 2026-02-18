@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+	"sync"
 )
 
 type Exchange interface {
@@ -19,7 +20,7 @@ type Exchange interface {
 
 type Graph struct {
 	Rates map[string]map[string]float64 // map of a map - first string is base currency, second is converted currency, float is exchange rate
-
+	mu sync.Mutex
 }
 
 type MockExchange struct {
@@ -72,42 +73,48 @@ func main() {
 		case <-ticker.C:
 
 			market := NewGraph()
-
-			btcBasePrice, err1 := coinbase.GetPrice("BTC-USD")			
-			
-			if err1 != nil{
-				fmt.Println("Cant get base BTC price. Must skip round")
-				continue
-			}
-			
 			fee := 0.996
 
-			market.AddRate("USD", "BTC", (1/btcBasePrice) * fee)
-			market.AddRate("BTC", "USD", btcBasePrice * fee )
-			
-			
+			var wg sync.WaitGroup
+
+			wg.Add(1)
+			go func(){
+				defer wg.Done()
+				btcBasePrice, err1 := coinbase.GetPrice("BTC-USD")			
+				if err1 == nil{
+					market.AddRate("USD", "BTC", (1/btcBasePrice) * fee)
+					market.AddRate("BTC", "USD", btcBasePrice * fee )
+				}			
+			}()
+
+
 			altCoins := []string{"ETH", "SOL", "XRP", "DOGE", "ADA", "LINK"}
 
 			for _, coin := range altCoins{
-				usdPair := fmt.Sprintf("%s-USD", coin)
-				btcPair := fmt.Sprintf("%s-BTC", coin)
 
-				usdPrice,err2 := coinbase.GetPrice(usdPair)
-				btcPrice,err3 := coinbase.GetPrice(btcPair)
+				wg.Add(1)
 
-				if err2 != nil || err3 != nil{
-					fmt.Printf("Skipped %s\n", coin)
-					continue
-				}
+				go func (c string)  {
+					defer wg.Done()	
+					usdPair := fmt.Sprintf("%s-USD", c)
+					btcPair := fmt.Sprintf("%s-BTC", c)
 
-				market.AddRate("USD", coin, (1/usdPrice)*fee)
-				market.AddRate(coin, "USD", usdPrice*fee)
+					usdPrice,errUSD := coinbase.GetPrice(usdPair)
+					btcPrice,errBTC := coinbase.GetPrice(btcPair)
+
+					if errUSD == nil && errBTC == nil {
+						market.AddRate("USD", c, (1/usdPrice)*fee)
+						market.AddRate(c, "USD", usdPrice*fee)
+						
+						market.AddRate("BTC", c, (1/btcPrice)*fee)
+						market.AddRate(c, "BTC", btcPrice*fee)
+					}
+
+				}(coin)
 				
-				market.AddRate("BTC", coin, (1/btcPrice)*fee)
-				market.AddRate(coin, "BTC", btcPrice*fee)
-
 			}
 
+			wg.Wait()
 
 			CalculateDynamicPath(market, 100.0, "USD", 100.0, []string{"USD"}, 4)
 
@@ -128,6 +135,8 @@ func NewGraph() *Graph {
 
 func (g *Graph) AddRate(source string, destination string, rate float64) {
 
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	if g.Rates[source] == nil {
 
 		g.Rates[source] = make(map[string]float64)
