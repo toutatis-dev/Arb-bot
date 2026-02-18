@@ -70,12 +70,10 @@ func main() {
 	for {
 		select {
 		case <-ticker.C:
-			btcPrice, err1 := coinbase.GetPrice("BTC-USD")
-			ethPrice, err2 := coinbase.GetPrice("ETH-USD")
-			ethBTC, err3 := coinbase.GetPrice("ETH-BTC")			
+			btcBasePrice, err1 := coinbase.GetPrice("BTC-USD")			
 			
-			if err1 != nil || err2 != nil || err3 != nil{
-				fmt.Println("Encountered an issue, skipping this poll")
+			if err1 != nil{
+				fmt.Println("Cant get base BTC price. Must skip round")
 				continue
 			}
 			
@@ -83,10 +81,29 @@ func main() {
 
 			market.AddRate("USD", "BTC", (1/btcPrice) * fee)
 			market.AddRate("BTC", "USD", btcPrice * fee )
-			market.AddRate("ETH", "USD", ethPrice * fee )
-			market.AddRate("USD", "ETH", (1/ethPrice) * fee)
-			market.AddRate("ETH", "BTC", ethBTC * fee)
-			market.AddRate("BTC","ETH", (1/ethBTC) * fee)
+			
+			
+			altCoins := []string{"ETH", "SOL", "XRP", "DOGE", "ADA", "LINK"}
+
+			for _, coin := range altCoins{
+				usdPair := fmt.Sprintf("%s-USD", coin)
+				btcPair := fmt.Sprintf("%s-BTC", coin)
+
+				usdPrice,err2 := coinbase.GetPrice(usdPair)
+				btcPrice,err3 := coinbase.GetPrice(btcPair)
+
+				if err2 != nil || err3 != nil{
+					fmt.Printf("Skipped %s\n", coin)
+					continue
+				}
+
+				market.AddRate("USD", coin, (1/usdPrice)*fee)
+				market.AddRate(coin, "USD", usdPrice*fee)
+				
+				market.AddRate("BTC", coin, (1/btcPrice)*fee)
+				market.AddRate(coin, "BTC", btcPrice*fee)
+
+			}
 
 
 			CalculateDynamicPath(market, 100.0, "USD", 100.0, []string{"USD"}, 4)
