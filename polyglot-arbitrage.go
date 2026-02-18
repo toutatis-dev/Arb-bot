@@ -70,20 +70,26 @@ func main() {
 	for {
 		select {
 		case <-ticker.C:
-			btcPrice, _ := coinbase.GetPrice("BTC-USD")
-			ethPrice, _ := coinbase.GetPrice("ETH-USD")
-			ethBTC, _ := coinbase.GetPrice("ETH-BTC")			
+			btcPrice, err1 := coinbase.GetPrice("BTC-USD")
+			ethPrice, err2 := coinbase.GetPrice("ETH-USD")
+			ethBTC, err3 := coinbase.GetPrice("ETH-BTC")			
+			
+			if err1 != nil || err2 != nil || err3 != nil{
+				fmt.Println("Encountered an issue, skipping this poll")
+				continue
+			}
+			
+			fee := 0.996
+
+			market.AddRate("USD", "BTC", (1/btcPrice) * fee)
+			market.AddRate("BTC", "USD", btcPrice * fee )
+			market.AddRate("ETH", "USD", ethPrice * fee )
+			market.AddRate("USD", "ETH", (1/ethPrice) * fee)
+			market.AddRate("ETH", "BTC", ethBTC * fee)
+			market.AddRate("BTC","ETH", (1/ethBTC) * fee)
 
 
-			market.AddRate("USD", "BTC", 1/btcPrice)
-			market.AddRate("BTC", "USD", btcPrice)
-			market.AddRate("ETH", "USD", ethPrice)
-			market.AddRate("USD", "ETH", 1/ethPrice)
-			market.AddRate("ETH", "BTC", ethBTC)
-			market.AddRate("BTC","ETH", 1/ethBTC)
-
-
-			CalculateDynamicPath(market, 100.0, "USD", 100.0, []string{"USD"}, 3)
+			CalculateDynamicPath(market, 100.0, "USD", 100.0, []string{"USD"}, 4)
 
 		case <-quit:
 			fmt.Println("\n Quitting\n")
