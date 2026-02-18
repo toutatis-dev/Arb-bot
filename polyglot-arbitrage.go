@@ -79,8 +79,8 @@ func main() {
 			
 			fee := 0.996
 
-			market.AddRate("USD", "BTC", (1/btcPrice) * fee)
-			market.AddRate("BTC", "USD", btcPrice * fee )
+			market.AddRate("USD", "BTC", (1/btcBasePrice) * fee)
+			market.AddRate("BTC", "USD", btcBasePrice * fee )
 			
 			
 			altCoins := []string{"ETH", "SOL", "XRP", "DOGE", "ADA", "LINK"}
