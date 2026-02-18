@@ -65,11 +65,14 @@ func main() {
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	fmt.Printf("Bot started, Ctrl + C to stop\n")
 
-	market := NewGraph()
+	
 
 	for {
 		select {
 		case <-ticker.C:
+
+			market := NewGraph()
+
 			btcBasePrice, err1 := coinbase.GetPrice("BTC-USD")			
 			
 			if err1 != nil{
