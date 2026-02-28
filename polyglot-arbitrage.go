@@ -8,9 +8,9 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
-	"sync"
 )
 
 type Exchange interface {
@@ -20,12 +20,7 @@ type Exchange interface {
 
 type Graph struct {
 	Rates map[string]map[string]float64 // map of a map - first string is base currency, second is converted currency, float is exchange rate
-	mu sync.Mutex
-}
-
-type MockExchange struct {
-	Pair  string
-	Price float64
+	mu    sync.Mutex
 }
 
 type Coinbase struct {
@@ -43,19 +38,6 @@ type CoinbaseResponse struct {
 	} `json:"data"`
 }
 
-type Binance struct {
-	PairMapping map[string]string
-}
-
-func (b Binance) GetName() string {
-	return "Binance"
-}
-
-type BinanceResponse struct {
-	Symbol string `json:"symbol"`
-	Price  string `json:"price"`
-}
-
 func main() {
 
 	coinbase := Coinbase{}
@@ -65,8 +47,6 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	fmt.Printf("Bot started, Ctrl + C to stop\n")
-
-	
 
 	for {
 		select {
@@ -78,40 +58,39 @@ func main() {
 			var wg sync.WaitGroup
 
 			wg.Add(1)
-			go func(){
+			go func() {
 				defer wg.Done()
-				btcBasePrice, err1 := coinbase.GetPrice("BTC-USD")			
-				if err1 == nil{
-					market.AddRate("USD", "BTC", (1/btcBasePrice) * fee)
-					market.AddRate("BTC", "USD", btcBasePrice * fee )
-				}			
+				btcBasePrice, err1 := coinbase.GetPrice("BTC-USD")
+				if err1 == nil {
+					market.AddRate("USD", "BTC", (1/btcBasePrice)*fee)
+					market.AddRate("BTC", "USD", btcBasePrice*fee)
+				}
 			}()
-
 
 			altCoins := []string{"ETH", "SOL", "XRP", "DOGE", "ADA", "LINK"}
 
-			for _, coin := range altCoins{
+			for _, coin := range altCoins {
 
 				wg.Add(1)
 
-				go func (c string)  {
-					defer wg.Done()	
+				go func(c string) {
+					defer wg.Done()
 					usdPair := fmt.Sprintf("%s-USD", c)
 					btcPair := fmt.Sprintf("%s-BTC", c)
 
-					usdPrice,errUSD := coinbase.GetPrice(usdPair)
-					btcPrice,errBTC := coinbase.GetPrice(btcPair)
+					usdPrice, errUSD := coinbase.GetPrice(usdPair)
+					btcPrice, errBTC := coinbase.GetPrice(btcPair)
 
 					if errUSD == nil && errBTC == nil {
 						market.AddRate("USD", c, (1/usdPrice)*fee)
 						market.AddRate(c, "USD", usdPrice*fee)
-						
+
 						market.AddRate("BTC", c, (1/btcPrice)*fee)
 						market.AddRate(c, "BTC", btcPrice*fee)
 					}
 
 				}(coin)
-				
+
 			}
 
 			wg.Wait()
@@ -153,7 +132,7 @@ func CalculateDynamicPath(g *Graph, startingamount float64, currentNode string, 
 	}
 
 	if len(path) > 1 && path[0] == currentNode {
-		if currentAmount > startingamount + 0.02 {
+		if currentAmount > startingamount+0.02 {
 			fmt.Printf("Potential Arbitrage found!\n Profit made %.8f\n", currentAmount-startingamount)
 			fmt.Printf("Path found %v\n", path)
 		}
@@ -198,38 +177,3 @@ func (c Coinbase) GetPrice(pair string) (float64, error) {
 
 	return price, nil
 }
-
-func (b Binance) GetPrice(pair string) (float64, error) {
-
-	binanceSymbol, ok := b.PairMapping[pair]
-	if !ok {
-		return 0, errors.New("The mapping for Binance isnt configured")
-	}
-
-	url := fmt.Sprintf("https://api.binance.com/api/v3/ticker/price?symbol=%s", binanceSymbol)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return 0, errors.New("Binance returned a non 200 status code")
-	}
-
-	var bResponse BinanceResponse
-
-	if err := json.NewDecoder(resp.Body).Decode(&bResponse); err != nil {
-		return 0, err
-	}
-
-	price, err := strconv.ParseFloat(bResponse.Price, 64)
-	if err != nil {
-		return 0, errors.New("Could not convert price")
-	}
-
-	return price, nil
-
-}
-
