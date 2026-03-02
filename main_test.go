@@ -28,3 +28,31 @@ func TestAddRate(t *testing.T) {
 	}
 
 }
+
+func TestCalculateDynamicPath(t *testing.T) {
+
+	g := NewGraph()
+	g.AddRate("USD", "BTC", 1.0)
+	g.AddRate("BTC", "ETH", 1.0)
+	g.AddRate("ETH", "USD", 1.1)
+
+	res := CalculateDynamicPath(g, 100, "USD", 100, []string{"USD"}, 4)
+	expected := []string{"USD", "BTC", "ETH", "USD"}
+
+	if !reflect.DeepEqual(res[0].Path, expected) {
+		t.Errorf("Wrong path returned. Expected %v, got %v", expected, res[0].Path)
+	}
+
+	g = NewGraph()
+	g.AddRate("USD", "BTC", 1.0)
+	g.AddRate("BTC", "ETH", 1.0)
+	g.AddRate("ETH", "USD", 0.9)
+
+	res = CalculateDynamicPath(g, 100, "USD", 100, []string{"USD"}, 4)
+	expected = []string{}
+
+	if len(res) != 0 {
+		t.Errorf("Wrong path returned. Expected %v, got %v", expected, res[0].Path)
+	}
+
+}
