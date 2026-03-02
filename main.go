@@ -26,6 +26,11 @@ type Graph struct {
 type Coinbase struct {
 }
 
+type ArbitrageResult struct {
+	Path   []string
+	Profit float64
+}
+
 func (c Coinbase) GetName() string {
 	return "Coinbase"
 }
@@ -125,18 +130,20 @@ func (g *Graph) AddRate(source string, destination string, rate float64) {
 
 }
 
-func CalculateDynamicPath(g *Graph, startingamount float64, currentNode string, currentAmount float64, path []string, maxSteps int) {
-
+func CalculateDynamicPath(g *Graph, startingamount float64, currentNode string, currentAmount float64, path []string, maxSteps int) []ArbitrageResult {
+	res := []ArbitrageResult{}
 	if len(path) > maxSteps {
-		return //exceeded max steps
+		return res //exceeded max steps
 	}
 
 	if len(path) > 1 && path[0] == currentNode {
 		if currentAmount > startingamount+0.02 {
-			fmt.Printf("Potential Arbitrage found!\n Profit made %.8f\n", currentAmount-startingamount)
-			fmt.Printf("Path found %v\n", path)
+			res = append(res, ArbitrageResult{
+				Path:   append([]string{}, path...),
+				Profit: currentAmount - startingamount,
+			})
 		}
-		return
+		return res
 	}
 
 	for nextNode, rate := range g.Rates[currentNode] {
@@ -145,9 +152,10 @@ func CalculateDynamicPath(g *Graph, startingamount float64, currentNode string, 
 		newPath := append([]string{}, path...)
 		newPath = append(newPath, nextNode)
 
-		CalculateDynamicPath(g, startingamount, nextNode, newAmount, newPath, maxSteps)
+		results := CalculateDynamicPath(g, startingamount, nextNode, newAmount, newPath, maxSteps)
+		res = append(res, results...)
 	}
-
+	return res
 }
 
 func (c Coinbase) GetPrice(pair string) (float64, error) {
