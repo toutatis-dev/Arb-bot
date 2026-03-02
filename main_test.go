@@ -17,3 +17,14 @@ func TestNewGraph(t *testing.T) {
 	}
 
 }
+
+func TestAddRate(t *testing.T) {
+	g := NewGraph()
+	g.AddRate("USD", "BTC", 65000)
+	expected := map[string]map[string]float64{"USD": {"BTC": 65000}}
+
+	if !reflect.DeepEqual(g.Rates, expected) {
+		t.Errorf("AddRate failed. Expected %v, got %v", expected, g.Rates)
+	}
+
+}
