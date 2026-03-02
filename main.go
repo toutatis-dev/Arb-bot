@@ -98,7 +98,7 @@ func main() {
 			CalculateDynamicPath(market, 100.0, "USD", 100.0, []string{"USD"}, 4)
 
 		case <-quit:
-			fmt.Println("\n Quitting\n")
+			fmt.Println("\n Quitting")
 			ticker.Stop()
 			fmt.Println("Goodbye!")
 			return
